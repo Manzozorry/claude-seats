@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "zorry.claude-account",
+  "name": "Claude Account",
+  "version": "1.2.0",
+  "author": "zorry",
+  "description": "Toggle Claude Code between saved subscription logins (e.g. work and private)",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Claude Account",
+    "description": "Active Claude Code login in an Agents-style panel: switch accounts, compare their limits, get a switch prompt near a limit",
+    "category": "AI",
+    "aliases": [
+      "claude-switch",
+      "claude-login"
+    ],
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "alerts": true,
+      "alertAt": 90
+    },
+    "schema": [
+      {
+        "key": "alerts",
+        "type": "boolean",
+        "label": "Notify near a limit",
+        "defaultValue": true,
+        "description": "When the active account crosses the threshold, offer to switch to an account with room."
+      },
+      {
+        "key": "alertAt",
+        "type": "integer",
+        "label": "Alert threshold (%)",
+        "min": 50,
+        "max": 100,
+        "step": 5,
+        "defaultValue": 90
+      }
+    ]
+  }
+}

@@ -1,0 +1,459 @@
+#!/usr/bin/env python3
+"""Switch Claude Code between saved subscription logins.
+
+Claude Code keeps its login (OAuth tokens) in ~/.claude/.credentials.json on
+Linux and in the login Keychain on macOS, and the account details in the
+oauthAccount block of ~/.claude.json. Each saved account is a copy of both:
+account.json in the store directory, and the tokens next to it (Linux) or in
+a Keychain item of their own (macOS). Switching first writes the live login
+back into its own slot (OAuth refresh tokens rotate, so the copy would
+otherwise go stale), then installs the target slot.
+
+  claude-account save [name]       save the current login as [name] (asks if omitted)
+  claude-account use <name>        switch to <name>
+  claude-account toggle            switch to the next saved account
+  claude-account login [name]      log in (in a terminal) and save as [name]
+  claude-account list              human-readable list
+  claude-account status            JSON for the bar widget
+  claude-account limits [--force]  JSON rate limits for every saved account
+  claude-account forget <name>     delete a saved account
+"""
+import datetime as dt
+import getpass
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+MACOS = sys.platform == "darwin"
+HOME = Path.home()
+CLAUDE_DIR = Path(os.environ.get("CLAUDE_CONFIG_DIR") or HOME / ".claude")
+CREDS = CLAUDE_DIR / ".credentials.json"
+STATE = Path(os.environ.get("CLAUDE_CONFIG_DIR") or HOME) / ".claude.json"
+if os.environ.get("XDG_DATA_HOME"):
+  STORE = Path(os.environ["XDG_DATA_HOME"]) / "claude-accounts"
+elif MACOS:
+  STORE = HOME / "Library/Application Support/claude-accounts"
+else:
+  STORE = HOME / ".local/share/claude-accounts"
+
+KEYCHAIN_LIVE = "Claude Code-credentials"
+KEYCHAIN_SLOT = "claude-account: {}"
+USAGE_ENDPOINT = "https://api.anthropic.com/api/oauth/usage"
+COLLECTOR = "/usr/share/omarchy/bin/omarchy-agent-usage-claude"
+PROBE_MIN_SECONDS = 120
+
+
+def die(msg):
+  print(f"claude-account: {msg}", file=sys.stderr)
+  sys.exit(1)
+
+
+def read_json(path):
+  try:
+    return json.loads(path.read_text(encoding="utf-8"))
+  except (OSError, ValueError):
+    return None
+
+
+def write_atomic(path, text):
+  path.parent.mkdir(parents=True, exist_ok=True)
+  fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.")
+  try:
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+      f.write(text)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, path)
+  except BaseException:
+    os.unlink(tmp)
+    raise
+
+
+# ------------------------------------------------------------- credentials
+#
+# Tokens live in one of two places. Everything above this section only ever
+# calls live_creds / set_live_creds / slot_creds / set_slot_creds.
+
+
+def keychain_read(service):
+  try:
+    out = subprocess.run(["security", "find-generic-password", "-s", service, "-w"],
+                         capture_output=True, text=True, timeout=30)
+  except (OSError, subprocess.TimeoutExpired):
+    return None
+  return out.stdout.strip() if out.returncode == 0 and out.stdout.strip() else None
+
+
+def keychain_write(service, secret):
+  # Through `security -i` on stdin, hex-encoded, so the token never shows up in
+  # the process list and needs no quoting.
+  command = f'add-generic-password -U -a "{getpass.getuser()}" -s "{service}" -X {secret.encode().hex()}\n'
+  out = subprocess.run(["security", "-i"], input=command, capture_output=True, text=True, timeout=30)
+  if out.returncode != 0 or "error" in out.stderr.lower():
+    die(f"couldn't write the Keychain item {service!r}: {out.stderr.strip()}")
+
+
+def keychain_delete(service):
+  subprocess.run(["security", "delete-generic-password", "-s", service], capture_output=True)
+
+
+def uses_keychain():
+  # Claude Code on macOS uses the Keychain, but falls back to the file when
+  # one exists (e.g. CLAUDE_CONFIG_DIR setups), so follow whichever it uses.
+  return MACOS and not CREDS.is_file()
+
+
+def live_creds():
+  if uses_keychain():
+    return keychain_read(KEYCHAIN_LIVE)
+  try:
+    return CREDS.read_text(encoding="utf-8")
+  except OSError:
+    return None
+
+
+def set_live_creds(text):
+  if uses_keychain():
+    keychain_write(KEYCHAIN_LIVE, text)
+  else:
+    write_atomic(CREDS, text)
+
+
+def slot_creds(name):
+  if MACOS:
+    return keychain_read(KEYCHAIN_SLOT.format(name))
+  try:
+    return (STORE / name / "credentials.json").read_text(encoding="utf-8")
+  except OSError:
+    return None
+
+
+def set_slot_creds(name, text):
+  if MACOS:
+    keychain_write(KEYCHAIN_SLOT.format(name), text)
+  else:
+    write_atomic(STORE / name / "credentials.json", text)
+
+
+def forget(name):
+  if MACOS:
+    keychain_delete(KEYCHAIN_SLOT.format(name))
+  shutil.rmtree(STORE / name, ignore_errors=True)
+
+
+def parse_login(text):
+  try:
+    return (json.loads(text or "{}") or {}).get("claudeAiOauth") or {}
+  except ValueError:
+    return {}
+
+
+# ---------------------------------------------------------------- accounts
+
+
+def identity(account):
+  if not account:
+    return None
+  return (account.get("accountUuid"), account.get("organizationUuid"))
+
+
+def live_account():
+  state = read_json(STATE)
+  return state.get("oauthAccount") if state else None
+
+
+def slots():
+  if not STORE.is_dir():
+    return []
+  out = []
+  for d in sorted(STORE.iterdir()):
+    account = read_json(d / "account.json")
+    if account and (MACOS or (d / "credentials.json").is_file()):
+      out.append((d.name, account))
+  return out
+
+
+def current_slot():
+  live = identity(live_account())
+  for name, account in slots():
+    if identity(account) == live:
+      return name
+  return None
+
+
+def check_name(name):
+  if not name or "/" in name or name.startswith("."):
+    die(f"bad account name: {name!r}")
+
+
+def save(name):
+  check_name(name)
+  account = live_account()
+  creds = live_creds()
+  if not account or not creds:
+    die("not logged in — run `claude` and /login first")
+  slot = STORE / name
+  slot.mkdir(parents=True, exist_ok=True)
+  os.chmod(STORE, 0o700)
+  os.chmod(slot, 0o700)
+  set_slot_creds(name, creds)
+  write_atomic(slot / "account.json", json.dumps(account, indent=2))
+
+
+def refresh_agents_widget():
+  # Let Omarchy's Agents bar widget pick up the new account's limits.
+  if shutil.which("omarchy-agent-usage-update"):
+    subprocess.Popen(["omarchy-agent-usage-update", "--force", "claude"],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+
+
+def use(name):
+  account = read_json(STORE / name / "account.json")
+  creds = slot_creds(name) if account else None
+  if not account or not creds:
+    die(f"no saved account named {name!r} (see `claude-account list`)")
+
+  current = current_slot()
+  if current == name:
+    return
+  if current:
+    save(current)  # keep its rotated refresh token
+
+  set_live_creds(creds)
+  state = read_json(STATE) or {}
+  state["oauthAccount"] = account
+  write_atomic(STATE, json.dumps(state, indent=2))
+  refresh_agents_widget()
+
+
+def toggle():
+  names = [n for n, _ in slots()]
+  if len(names) < 2:
+    die("save at least two accounts first")
+  current = current_slot()
+  i = names.index(current) if current in names else -1
+  target = names[(i + 1) % len(names)]
+  use(target)
+  return target
+
+
+def login(name):
+  current = current_slot()
+  if current:
+    save(current)  # the new login replaces the live one; keep this one safe
+  if not name:
+    try:
+      name = input("Name for this account (e.g. private, work): ").strip()
+    except EOFError:
+      die("no name given")
+  check_name(name)
+  claude = shutil.which("claude") or next((str(p) for p in (HOME / ".local/bin/claude", HOME / ".claude/local/claude",
+                                          Path("/opt/homebrew/bin/claude"), Path("/usr/local/bin/claude")) if p.exists()), None)
+  if not claude:
+    die("couldn't find the claude command")
+  before = identity(live_account())
+  cmd = [claude, "auth", "login"]
+  known = read_json(STORE / name / "account.json")
+  if known and known.get("emailAddress"):
+    cmd += ["--email", known["emailAddress"]]
+  print(f"\nLogging in as '{name}'. In the browser, make sure you pick the right"
+        "\nClaude account (switch accounts there first if needed).\n")
+  if subprocess.call(cmd) != 0:
+    if current:
+      use(current)
+    die("login failed or was cancelled")
+  account = live_account()
+  if not account:
+    die("login finished but no account was found")
+  for other, acc in slots():
+    if other != name and identity(acc) == identity(account):
+      print(f"\nThat login is the same account as '{other}'.")
+      save(other)  # its fresh tokens supersede the saved ones
+      if current and current != other:
+        use(current)
+      die("log in with a different account in the browser and try again")
+  save(name)
+  print(f"\nSaved {account.get('emailAddress')} as '{name}'. It is now the active account.")
+  if before != identity(account):
+    refresh_agents_widget()
+
+
+# ------------------------------------------------------------------ limits
+
+
+def builtin_probe(token):
+  """Minimal client for the OAuth usage endpoint, for machines without
+  Omarchy's collector (macOS). Same request, same output shape."""
+  request = urllib.request.Request(USAGE_ENDPOINT, headers={
+    "Authorization": "Bearer " + token,
+    "anthropic-beta": "oauth-2025-04-20",
+    "Accept": "application/json",
+  })
+  try:
+    with urllib.request.urlopen(request, timeout=10) as response:
+      payload = json.loads(response.read().decode("utf-8", errors="replace"))
+  except (urllib.error.URLError, ValueError, OSError):
+    return {"ok": False}
+
+  buckets = [("Session (5-hour)", payload.get("five_hour")),
+             ("Weekly (7-day)", payload.get("seven_day_oauth_apps") or payload.get("seven_day"))]
+  values = [float(b.get("utilization")) for _, b in buckets if isinstance(b, dict) and b.get("utilization") is not None]
+  percent_scale = any(v >= 1 for v in values)
+  out = []
+  for label, bucket in buckets:
+    if not isinstance(bucket, dict) or bucket.get("utilization") is None:
+      continue
+    value = float(bucket["utilization"])
+    percent = min(1.0, value / 100 if percent_scale or value > 1 else value)
+    out.append({"label": label, "percent": percent, "resetsAt": str(bucket.get("resets_at") or "")})
+  return {"ok": bool(out), "limits": out}
+
+
+def probe_function():
+  """Omarchy's own collector when it's installed, so the numbers match its
+  Agents widget exactly; the built-in client otherwise."""
+  if os.path.exists(COLLECTOR):
+    try:
+      from importlib.machinery import SourceFileLoader
+      from importlib.util import module_from_spec, spec_from_loader
+      loader = SourceFileLoader("omarchy_usage_claude", COLLECTOR)
+      module = module_from_spec(spec_from_loader(loader.name, loader))
+      loader.exec_module(module)
+      return module.probe_limits
+    except Exception:
+      pass
+  return builtin_probe
+
+
+def plan_label(login):
+  tier = str(login.get("rateLimitTier") or "")
+  sub = str(login.get("subscriptionType") or "")
+  m = re.search(r"max_(\d+x)", tier, re.IGNORECASE)
+  if m:
+    return "Max " + m.group(1)
+  return sub[:1].upper() + sub[1:]
+
+
+def account_limits(name, active, force, probe):
+  """Limits for one slot. Only the active account's token is kept fresh by
+  Claude Code; an idle slot's token is never refreshed here (that would
+  rotate its refresh token behind the CLI's back), so once it lapses the
+  slot reports its last known numbers, minus any window that has reset."""
+  slot = STORE / name
+  login = parse_login(live_creds() if active else slot_creds(name))
+  token = str(login.get("accessToken") or "")
+  expires = float(login.get("expiresAt") or 0)
+  cache = read_json(slot / "limits.json") or {}
+  now = time.time()
+  fetched = float(cache.get("fetchedAtMs") or 0) / 1000
+  out = {"plan": plan_label(login), "limits": [], "fetchedAtMs": cache.get("fetchedAtMs") or 0,
+         "live": False, "status": ""}
+
+  def open_windows(entries):
+    keep = []
+    for e in entries or []:
+      reset = str(e.get("resetsAt") or "")
+      if reset:
+        try:
+          if dt.datetime.fromisoformat(reset.replace("Z", "+00:00")).timestamp() <= now:
+            e = dict(e, percent=0.0, resetsAt="", reset=True)
+        except ValueError:
+          pass
+      keep.append(e)
+    return keep
+
+  token_ok = bool(token) and (expires <= 0 or expires > now * 1000)
+  if token_ok and (force or now - fetched >= PROBE_MIN_SECONDS):
+    result = probe(token)
+    if result.get("ok"):
+      cache = {"fetchedAtMs": round(now * 1000), "limits": result["limits"]}
+      write_atomic(slot / "limits.json", json.dumps(cache))
+      fetched = now
+      out["fetchedAtMs"] = cache["fetchedAtMs"]
+    else:
+      out["status"] = "Couldn't fetch limits"
+  out["limits"] = open_windows(cache.get("limits"))
+  out["live"] = token_ok and now - fetched < PROBE_MIN_SECONDS * 3
+  if not token_ok:
+    out["status"] = "Signed out" if not token else ("Sign-in expired" if active else "Idle sign-in expired")
+  return out
+
+
+def limits(force):
+  probe = probe_function()
+  current = current_slot()
+  print(json.dumps({
+    "current": current or "",
+    "accounts": {name: account_limits(name, name == current, force, probe) for name, _ in slots()},
+  }))
+
+
+# --------------------------------------------------------------------- cli
+
+
+def describe(name, account):
+  return {
+    "name": name,
+    "email": account.get("emailAddress", ""),
+    "org": account.get("organizationName", ""),
+    "plan": account.get("organizationType", "") or account.get("billingType", ""),
+  }
+
+
+def status():
+  live = live_account()
+  current = current_slot()
+  print(json.dumps({
+    "current": current or "",
+    "loggedIn": bool(live and live_creds()),
+    "liveEmail": (live or {}).get("emailAddress", ""),
+    "accounts": [describe(n, a) for n, a in slots()],
+  }))
+
+
+def main(argv):
+  cmd = argv[0] if argv else "list"
+  arg = argv[1] if len(argv) > 1 else None
+  if cmd == "save":
+    if not arg:
+      try:
+        arg = input("Name for this account (e.g. private, work): ").strip()
+      except EOFError:
+        die("no name given")
+    save(arg)
+    print(f"saved current login as {arg}")
+  elif cmd == "use" and arg:
+    use(arg)
+    print(f"switched to {arg}")
+  elif cmd == "toggle":
+    print(f"switched to {toggle()}")
+  elif cmd == "status":
+    status()
+  elif cmd == "list":
+    current = current_slot()
+    for name, account in slots():
+      d = describe(name, account)
+      mark = "*" if name == current else " "
+      print(f"{mark} {name:<12} {d['email']}  ({d['org']}, {d['plan']})")
+    if not current:
+      print("  (live login is not saved — `claude-account save <name>`)")
+  elif cmd == "login":
+    login(arg)
+  elif cmd == "limits":
+    limits(arg == "--force")
+  elif cmd == "forget" and arg:
+    forget(arg)
+  else:
+    print(__doc__.strip())
+    sys.exit(0 if cmd in ("-h", "--help", "help") else 2)
+
+
+if __name__ == "__main__":
+  main(sys.argv[1:])
