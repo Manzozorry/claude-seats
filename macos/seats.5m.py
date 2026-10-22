@@ -191,8 +191,7 @@ def main():
   # ---------- Switch ----------
   print(f"SWITCH ACCOUNT | size=11 color={DIM}")
   for a in accounts:
-    tick = "✓ " if a["name"] == current else "    "
-    print(f'{tick}{esc(title_case(a["name"]))} | {action("use", a["name"])} sfimage={"checkmark.circle.fill" if a["name"] == current else "circle"}')
+    print(f'{esc(title_case(a["name"]))} | {action("use", a["name"])} sfimage={"checkmark.circle.fill" if a["name"] == current else "circle"}')
     print(f'--{esc(a["email"])} | color={DIM}')
     print(f'--Log in again… | {action("login", a["name"], terminal=True)}')
   print(f'+ Add account… | {action("login", terminal=True)} sfimage=plus.circle')
