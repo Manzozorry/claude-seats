@@ -1,7 +1,7 @@
 # Installation guide
 
-Claude Account runs on **Omarchy** (as a bar widget) and on **macOS** (as a
-menu-bar item through SwiftBar). Both use the same `claude-account` command
+Claude Account runs on **macOS** (as a menu-bar item through SwiftBar) and on
+**Linux** (as a bar widget on Omarchy, or as a CLI on any distribution). Both use the same `claude-account` command
 underneath, so the behaviour is the same on each.
 
 - [Omarchy](#omarchy)
@@ -21,7 +21,7 @@ underneath, so the behaviour is the same on each.
 1. Add the plugin and put it on the bar:
 
    ```bash
-   omarchy plugin add https://github.com/Manzozorry/omarchy-claude-account --enable
+   omarchy plugin add https://github.com/Manzozorry/claude-account --enable
    ```
 
    It lands at `~/.config/omarchy/plugins/zorry.claude-account/`. To place it
@@ -58,8 +58,8 @@ you have Homebrew).
 1. Download the repository and run the installer:
 
    ```bash
-   git clone https://github.com/Manzozorry/omarchy-claude-account.git
-   cd omarchy-claude-account
+   git clone https://github.com/Manzozorry/claude-account.git
+   cd claude-account
    ./macos/install.sh
    ```
 

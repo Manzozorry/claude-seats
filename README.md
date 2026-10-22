@@ -2,8 +2,9 @@
 
 Switch [Claude Code](https://claude.com/claude-code) between several
 subscriptions, for example a work Team seat and a private Pro/Max plan, with
-one click. It runs as an [Omarchy](https://omarchy.org/) bar widget, styled to
-match Omarchy's own **Agents** widget, and as a **macOS** menu-bar item.
+one click, and see every account's limits side by side. Runs on **macOS** (menu
+bar) and **Linux**: a bar widget on [Omarchy](https://omarchy.org/), and a CLI
+on any distribution.
 
 ![Preview](preview.png)
 
@@ -20,28 +21,32 @@ match Omarchy's own **Agents** widget, and as a **macOS** menu-bar item.
 - **Add accounts from the widget.** **+ Add** opens a terminal that runs
   `claude auth login` and saves the result under a name you choose.
   Right-clicking an account lets you log in to it again.
-- Follows the current Omarchy theme.
+- Feels native on each platform: a standard menu on macOS, and a widget on
+  Omarchy that matches the built-in Agents panel and follows your theme.
 
 ![Alert](screenshots/alert.png)
 
 ## Install
 
-📖 **Documentation: [the wiki](https://github.com/Manzozorry/omarchy-claude-account/wiki)**, covering
+📖 **Documentation: [the wiki](https://github.com/Manzozorry/claude-account/wiki)**, covering
 installation, configuration, the CLI, how it works, security and
 troubleshooting. A plain-text copy of the installation guide is in
 [docs/INSTALL.md](docs/INSTALL.md).
 
-**Omarchy**
+**Linux (Omarchy)**
 
 ```bash
-omarchy plugin add https://github.com/Manzozorry/omarchy-claude-account --enable
+omarchy plugin add https://github.com/Manzozorry/claude-account --enable
 ```
+
+**Other Linux** (CLI only): see
+[Installation on Linux](https://github.com/Manzozorry/claude-account/wiki/Installation-on-Linux#other-distributions).
 
 **macOS** (installs [SwiftBar](https://swiftbar.app) if needed)
 
 ```bash
-git clone https://github.com/Manzozorry/omarchy-claude-account.git
-cd omarchy-claude-account && ./macos/install.sh
+git clone https://github.com/Manzozorry/claude-account.git
+cd claude-account && ./macos/install.sh
 ```
 
 Then save the account you're logged in with now (**Save this login**) and add
