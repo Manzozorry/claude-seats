@@ -56,24 +56,11 @@ the other one with **+ Add**.
 
 The menu-bar version shows the same things in a native menu:
 
-```
-👤 Work
-├─ Work
-│  you@company.com · Acme Inc
-├─ SWITCH ACCOUNT
-│  ✓ Work                      ▸ email · Log in again…
-│    Private                   ▸ email · Log in again…
-│  + Add account…
-├─ WORK · TEAM — ACTIVE
-│  Session  ▰▰▰▰▰▱▱▱▱▱▱▱   42%
-│  Resets in 2h 12m
-│  Weekly   ▰▰▰▰▰▰▰▱▱▱▱▱   61%
-│  Resets in 3d 5h
-├─ PRIVATE · MAX 5X — 2H AGO
-│  Session  ▰▱▱▱▱▱▱▱▱▱▱▱    8%
-│  Weekly   ▰▰▰▰▰▰▰▰▰▰▰▱   93%
-└─ Refresh limits
-```
+| Light | Dark |
+| --- | --- |
+| ![Seats menu on macOS, light](screenshots/macos-menu-light.png) | ![Seats menu on macOS, dark](screenshots/macos-menu-dark.png) |
+
+<sub>Rendered from a mockup that follows the plugin's exact menu items. On a real Mac, macOS draws the menu natively.</sub>
 
 Logins are kept in the macOS Keychain, the same place Claude Code keeps its
 own.
