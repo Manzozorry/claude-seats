@@ -83,9 +83,9 @@ The first time you switch, macOS asks whether `security` may use the
 *Claude Code-credentials* item. Choose **Always Allow**. Saved accounts are
 stored in the Keychain too, as items named *claude-account: &lt;name&gt;*.
 
-Settings are environment variables in SwiftBar's plugin settings
-(SwiftBar → the plugin → *Edit environment*), or at the top of the plugin
-file:
+Settings are environment variables. The simplest way to change one is to edit
+its default near the top of `claude-account.5m.py` in your SwiftBar plugin
+folder (re-apply after re-running the installer):
 
 | Variable | Default | |
 | --- | --- | --- |

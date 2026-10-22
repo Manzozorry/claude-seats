@@ -26,8 +26,10 @@ match Omarchy's own **Agents** widget, and as a **macOS** menu-bar item.
 
 ## Install
 
-**Full guide: [docs/INSTALL.md](docs/INSTALL.md)**, which also covers
-updating, uninstalling and troubleshooting.
+📖 **Documentation: [the wiki](https://github.com/Manzozorry/omarchy-claude-account/wiki)**, covering
+installation, configuration, the CLI, how it works, security and
+troubleshooting. A plain-text copy of the installation guide is in
+[docs/INSTALL.md](docs/INSTALL.md).
 
 **Omarchy**
 
