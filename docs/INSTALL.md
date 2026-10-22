@@ -1,7 +1,7 @@
 # Installation guide
 
-Claude Account runs on **macOS** (as a menu-bar item through SwiftBar) and on
-**Linux** (as a bar widget on Omarchy, or as a CLI on any distribution). Both use the same `claude-account` command
+Seats runs on **macOS** (as a menu-bar item through SwiftBar) and on
+**Linux** (as a bar widget on Omarchy, or as a CLI on any distribution). Both use the same `seats` command
 underneath, so the behaviour is the same on each.
 
 - [Omarchy](#omarchy)
@@ -21,20 +21,20 @@ underneath, so the behaviour is the same on each.
 1. Add the plugin and put it on the bar:
 
    ```bash
-   omarchy plugin add https://github.com/Manzozorry/claude-account --enable
+   omarchy plugin add https://github.com/Manzozorry/claude-seats --enable
    ```
 
-   It lands at `~/.config/omarchy/plugins/zorry.claude-account/`. To place it
+   It lands at `~/.config/omarchy/plugins/zorry.seats/`. To place it
    right next to the Agents widget:
 
    ```bash
-   omarchy bar move zorry.claude-account --before omarchy.agents
+   omarchy bar move zorry.seats --before omarchy.agents
    ```
 
 2. *(Optional)* Put the CLI on your `PATH` so you can use it in a terminal:
 
    ```bash
-   ln -s ~/.config/omarchy/plugins/zorry.claude-account/claude-account ~/.local/bin/
+   ln -s ~/.config/omarchy/plugins/zorry.seats/seats ~/.local/bin/
    ```
 
 3. Continue with [first-time setup](#first-time-setup-both).
@@ -42,8 +42,8 @@ underneath, so the behaviour is the same on each.
 Settings live in the Omarchy settings panel, or:
 
 ```bash
-omarchy bar set zorry.claude-account alertAt 85      # alert threshold in %
-omarchy bar set zorry.claude-account alerts false    # turn alerts off
+omarchy bar set zorry.seats alertAt 85      # alert threshold in %
+omarchy bar set zorry.seats alerts false    # turn alerts off
 ```
 
 ---
@@ -58,12 +58,12 @@ you have Homebrew).
 1. Download the repository and run the installer:
 
    ```bash
-   git clone https://github.com/Manzozorry/claude-account.git
-   cd claude-account
+   git clone https://github.com/Manzozorry/claude-seats.git
+   cd claude-seats
    ./macos/install.sh
    ```
 
-   This copies the CLI to `~/.local/bin/claude-account`, installs SwiftBar if
+   This copies the CLI to `~/.local/bin/seats`, installs SwiftBar if
    it is missing, and puts the menu into SwiftBar's plugin folder. You can
    delete the downloaded folder afterwards.
 
@@ -78,20 +78,23 @@ you have Homebrew).
 
 3. Continue with [first-time setup](#first-time-setup-both).
 
-**Keychain prompt:** on macOS, Claude Code keeps its login in the Keychain.
-The first time you switch, macOS asks whether `security` may use the
-*Claude Code-credentials* item. Choose **Always Allow**. Saved accounts are
-stored in the Keychain too, as items named *claude-account: &lt;name&gt;*.
+**Keychain:** on macOS, Claude Code keeps its login in the Keychain, and Seats
+switches accounts by updating it with macOS's `security` tool. There is usually
+no prompt. If macOS does ask, **Allow** grants access once. **Always Allow**
+stops the prompts, but it also lets any program running as you read that item
+through `security`. See the wiki's *Security and Privacy* page before choosing
+it. Saved accounts are stored in the Keychain too, as items named
+*Seats: &lt;name&gt;*.
 
 Settings are environment variables. The simplest way to change one is to edit
-its default near the top of `claude-account.5m.py` in your SwiftBar plugin
+its default near the top of `seats.5m.py` in your SwiftBar plugin
 folder (re-apply after re-running the installer):
 
 | Variable | Default | |
 | --- | --- | --- |
-| `CLAUDE_ACCOUNT_ALERT_AT` | `90` | Alert threshold in % |
-| `CLAUDE_ACCOUNT_ALERTS` | `1` | `0` turns alerts off |
-| `CLAUDE_ACCOUNT_CLI` | — | Path to `claude-account`, if it isn't in `~/.local/bin` |
+| `SEATS_ALERT_AT` | `90` | Alert threshold in % |
+| `SEATS_ALERTS` | `1` | `0` turns alerts off |
+| `SEATS_CLI` | — | Path to `seats`, if it isn't in `~/.local/bin` |
 
 ---
 
@@ -104,7 +107,7 @@ You save each account once. After that, switching is one click.
    as `work`. Or in a terminal:
 
    ```bash
-   claude-account save work
+   seats save work
    ```
 
 2. **Add your other account.** Choose **+ Add** (Omarchy) or
@@ -128,7 +131,7 @@ saved login. Just switch, or log in again.
 **Omarchy:**
 
 ```bash
-omarchy plugin update zorry.claude-account
+omarchy plugin update zorry.seats
 ```
 
 **macOS:** pull the repository again and re-run `./macos/install.sh`. Your
@@ -143,23 +146,23 @@ Your saved accounts stay where they are unless you remove them as well.
 **Omarchy:**
 
 ```bash
-omarchy plugin remove zorry.claude-account
-rm -f ~/.local/bin/claude-account            # if you linked the CLI
+omarchy plugin remove zorry.seats
+rm -f ~/.local/bin/seats            # if you linked the CLI
 ```
 
-Saved accounts: `~/.local/share/claude-accounts/` (delete it to forget them).
+Saved accounts: `~/.local/share/seats/` (delete it to forget them).
 
 **macOS:**
 
 ```bash
-rm -f ~/.local/bin/claude-account
-rm -f "$(defaults read com.ameba.SwiftBar PluginDirectory)/claude-account.5m.py"
+rm -f ~/.local/bin/seats
+rm -f "$(defaults read com.ameba.SwiftBar PluginDirectory)/seats.5m.py"
 ```
 
-Saved accounts: run `claude-account forget <name>` for each one before
+Saved accounts: run `seats forget <name>` for each one before
 removing the CLI (that also deletes its Keychain item), or remove the
-*claude-account: &lt;name&gt;* items in Keychain Access and delete
-`~/Library/Application Support/claude-accounts/`.
+*Seats: &lt;name&gt;* items in Keychain Access and delete
+`~/Library/Application Support/Seats/`.
 
 ---
 
@@ -183,12 +186,12 @@ account you'd already saved. Sign in to the other account in the browser (or
 use a private window) and try **+ Add** again.
 
 **Omarchy: the widget doesn't appear.** Check that it's on the bar
-(`omarchy bar put zorry.claude-account --before omarchy.agents`) and restart the
+(`omarchy bar put zorry.seats --before omarchy.agents`) and restart the
 shell with `omarchy restart shell`.
 
-**macOS: the menu shows "claude-account CLI not found".** Re-run
-`./macos/install.sh`, or set `CLAUDE_ACCOUNT_CLI` to the CLI's path.
+**macOS: the menu shows "seats CLI not found".** Re-run
+`./macos/install.sh`, or set `SEATS_CLI` to the CLI's path.
 
-**macOS: switching fails with a Keychain error.** Open Keychain Access, find
-*Claude Code-credentials*, and under *Access Control* allow `/usr/bin/security`,
-or choose **Always Allow** the next time macOS asks.
+**macOS: switching fails with a Keychain error.** macOS denied `security`
+access to *Claude Code-credentials*. Switch again and choose **Allow** when
+asked (see the Keychain note above for the **Always Allow** trade-off).

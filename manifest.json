@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "id": "zorry.claude-account",
-  "name": "Claude Account",
-  "version": "1.2.0",
+  "id": "zorry.seats",
+  "name": "Seats",
+  "version": "2.0.0",
   "author": "zorry",
-  "description": "Toggle Claude Code between saved subscription logins (e.g. work and private)",
+  "description": "Seats for Claude Code: switch between subscriptions and compare their limits",
   "kinds": [
     "bar-widget"
   ],
@@ -12,12 +12,13 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "Claude Account",
-    "description": "Active Claude Code login in an Agents-style panel: switch accounts, compare their limits, get a switch prompt near a limit",
+    "displayName": "Seats",
+    "description": "Seats for Claude Code: switch Claude Code accounts, compare their limits, get a switch prompt near a limit",
     "category": "AI",
     "aliases": [
+      "claude-account",
       "claude-switch",
-      "claude-login"
+      "claude-seats"
     ],
     "allowMultiple": false,
     "defaultSection": "right",

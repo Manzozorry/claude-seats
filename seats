@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Switch Claude Code between saved subscription logins.
+"""Seats for Claude Code: switch Claude Code between saved subscription logins.
 
 Claude Code keeps its login (OAuth tokens) in ~/.claude/.credentials.json on
 Linux and in the login Keychain on macOS, and the account details in the
@@ -9,14 +9,14 @@ a Keychain item of their own (macOS). Switching first writes the live login
 back into its own slot (OAuth refresh tokens rotate, so the copy would
 otherwise go stale), then installs the target slot.
 
-  claude-account save [name]       save the current login as [name] (asks if omitted)
-  claude-account use <name>        switch to <name>
-  claude-account toggle            switch to the next saved account
-  claude-account login [name]      log in (in a terminal) and save as [name]
-  claude-account list              human-readable list
-  claude-account status            JSON for the bar widget
-  claude-account limits [--force]  JSON rate limits for every saved account
-  claude-account forget <name>     delete a saved account
+  seats save [name]       save the current login as [name] (asks if omitted)
+  seats use <name>        switch to <name>
+  seats toggle            switch to the next saved account
+  seats login [name]      log in (in a terminal) and save as [name]
+  seats list              human-readable list
+  seats status            JSON for the bar widget
+  seats limits [--force]  JSON rate limits for every saved account
+  seats forget <name>     delete a saved account
 """
 import datetime as dt
 import getpass
@@ -38,21 +38,27 @@ CLAUDE_DIR = Path(os.environ.get("CLAUDE_CONFIG_DIR") or HOME / ".claude")
 CREDS = CLAUDE_DIR / ".credentials.json"
 STATE = Path(os.environ.get("CLAUDE_CONFIG_DIR") or HOME) / ".claude.json"
 if os.environ.get("XDG_DATA_HOME"):
-  STORE = Path(os.environ["XDG_DATA_HOME"]) / "claude-accounts"
+  DATA = Path(os.environ["XDG_DATA_HOME"])
 elif MACOS:
-  STORE = HOME / "Library/Application Support/claude-accounts"
+  DATA = HOME / "Library/Application Support"
 else:
-  STORE = HOME / ".local/share/claude-accounts"
+  DATA = HOME / ".local/share"
+STORE = DATA / ("Seats" if MACOS and not os.environ.get("XDG_DATA_HOME") else "seats")
+OLD_STORE = DATA / "claude-accounts"  # before the rename to Seats
 
 KEYCHAIN_LIVE = "Claude Code-credentials"
-KEYCHAIN_SLOT = "claude-account: {}"
+KEYCHAIN_SLOT = "Seats: {}"
+OLD_KEYCHAIN_SLOT = "claude-account: {}"
+# Account names end up in Keychain service names, SwiftBar menu actions and
+# terminal commands, so they are kept to characters that need no quoting.
+NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$")
 USAGE_ENDPOINT = "https://api.anthropic.com/api/oauth/usage"
 COLLECTOR = "/usr/share/omarchy/bin/omarchy-agent-usage-claude"
 PROBE_MIN_SECONDS = 120
 
 
 def die(msg):
-  print(f"claude-account: {msg}", file=sys.stderr)
+  print(f"seats: {msg}", file=sys.stderr)
   sys.exit(1)
 
 
@@ -128,7 +134,14 @@ def set_live_creds(text):
 
 def slot_creds(name):
   if MACOS:
-    return keychain_read(KEYCHAIN_SLOT.format(name))
+    creds = keychain_read(KEYCHAIN_SLOT.format(name))
+    if creds is None:
+      # Saved before the rename: move the item to its new name.
+      creds = keychain_read(OLD_KEYCHAIN_SLOT.format(name))
+      if creds is not None:
+        keychain_write(KEYCHAIN_SLOT.format(name), creds)
+        keychain_delete(OLD_KEYCHAIN_SLOT.format(name))
+    return creds
   try:
     return (STORE / name / "credentials.json").read_text(encoding="utf-8")
   except OSError:
@@ -143,8 +156,10 @@ def set_slot_creds(name, text):
 
 
 def forget(name):
+  check_name(name)
   if MACOS:
     keychain_delete(KEYCHAIN_SLOT.format(name))
+    keychain_delete(OLD_KEYCHAIN_SLOT.format(name))
   shutil.rmtree(STORE / name, ignore_errors=True)
 
 
@@ -174,6 +189,8 @@ def slots():
     return []
   out = []
   for d in sorted(STORE.iterdir()):
+    if not NAME_RE.match(d.name):
+      continue
     account = read_json(d / "account.json")
     if account and (MACOS or (d / "credentials.json").is_file()):
       out.append((d.name, account))
@@ -189,8 +206,8 @@ def current_slot():
 
 
 def check_name(name):
-  if not name or "/" in name or name.startswith("."):
-    die(f"bad account name: {name!r}")
+  if not name or not NAME_RE.match(name):
+    die(f"bad account name {name!r}: use up to 32 letters, digits, '.', '_' or '-'")
 
 
 def save(name):
@@ -215,10 +232,11 @@ def refresh_agents_widget():
 
 
 def use(name):
+  check_name(name)
   account = read_json(STORE / name / "account.json")
   creds = slot_creds(name) if account else None
   if not account or not creds:
-    die(f"no saved account named {name!r} (see `claude-account list`)")
+    die(f"no saved account named {name!r} (see `seats list`)")
 
   current = current_slot()
   if current == name:
@@ -418,7 +436,14 @@ def status():
   }))
 
 
+def migrate():
+  """Move accounts saved under the old name (claude-account) to Seats."""
+  if not STORE.exists() and OLD_STORE.is_dir():
+    OLD_STORE.rename(STORE)
+
+
 def main(argv):
+  migrate()
   cmd = argv[0] if argv else "list"
   arg = argv[1] if len(argv) > 1 else None
   if cmd == "save":
@@ -443,7 +468,7 @@ def main(argv):
       mark = "*" if name == current else " "
       print(f"{mark} {name:<12} {d['email']}  ({d['org']}, {d['plan']})")
     if not current:
-      print("  (live login is not saved — `claude-account save <name>`)")
+      print("  (live login is not saved — `seats save <name>`)")
   elif cmd == "login":
     login(arg)
   elif cmd == "limits":

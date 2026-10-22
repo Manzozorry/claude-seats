@@ -4,15 +4,15 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
-// Claude Code account switcher, built in the image of omarchy.agents: a bar
+// Seats for Claude Code: an account switcher built in the image of omarchy.agents: a bar
 // icon that opens a panel with the active login, one switch per saved
 // account, and every account's rate limits side by side. When the active
 // account nears a limit and another one has room, it offers the switch in a
 // notification.
 Panel {
   id: root
-  moduleName: "zorry.claude-account"
-  ipcTarget: "zorry.claude-account"
+  moduleName: "zorry.seats"
+  ipcTarget: "zorry.seats"
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color urgent: bar ? bar.urgent : Color.urgent
@@ -20,7 +20,7 @@ Panel {
   readonly property color track: Style.selectedFillFor(foreground, Color.accent)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
-  readonly property string script: Qt.resolvedUrl("claude-account").toString().replace(/^file:\/\//, "")
+  readonly property string script: Qt.resolvedUrl("seats").toString().replace(/^file:\/\//, "")
   readonly property string home: Quickshell.env("HOME")
   readonly property url claudeMark: "file:///usr/share/omarchy/shell/plugins/agents/assets/claude.svg"
 
@@ -177,7 +177,7 @@ Panel {
   function login(name, verb) {
     if (!root.bar) return
     var cmd = "'" + root.script + "' " + (verb || "login") + (name ? " '" + name + "'" : "")
-    root.bar.run("xdg-terminal-exec --app-id=zorry.claude-account-login --title=\"Claude login\" -- bash -c \"" + cmd
+    root.bar.run("xdg-terminal-exec --app-id=zorry.seats-login --title=\"Seats: Claude login\" -- bash -c \"" + cmd
       + "; echo; read -n1 -rsp 'Press any key to close'\"")
     root.close()
   }
@@ -236,7 +236,7 @@ Panel {
     var pct = Math.round(w.percent * 100) + "%"
     var resets = w.resetAt !== "" ? " Resets in " + formatDuration(new Date(w.resetAt).getTime() - Date.now()) + "." : ""
     var title = titleCase(active.name) + " is at " + pct + " of its " + w.title.toLowerCase() + " limit"
-    var cmd = ["omarchy-notification-send", "--app-name", "Claude Account", "-g", "󰀉",
+    var cmd = ["omarchy-notification-send", "--app-name", "Seats", "-g", "󰀉",
                "-u", w.percent >= 1 ? "critical" : "normal"]
     if (alt) {
       cmd.push(title, "Click to switch to " + titleCase(alt.name) + " (" + Math.round(alt.percent * 100) + "% " + w.title.toLowerCase() + " used)." + resets)

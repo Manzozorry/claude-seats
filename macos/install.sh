@@ -1,5 +1,5 @@
 #!/bin/bash
-# Install Claude Account on macOS: the claude-account CLI into ~/.local/bin and
+# Install Seats for Claude Code on macOS: the seats CLI into ~/.local/bin and
 # the menu into SwiftBar's plugin folder. Safe to run again to update.
 set -euo pipefail
 
@@ -24,9 +24,13 @@ if ! command -v claude >/dev/null && [[ ! -x $HOME/.local/bin/claude ]]; then
   say "Claude Code (the claude command) isn't installed yet — the menu will work once it is."
 fi
 
-say "Installing the claude-account CLI to $bin"
+say "Installing the seats CLI to $bin"
 mkdir -p "$bin"
-install -m 0755 "$repo/claude-account" "$bin/claude-account"
+install -m 0755 "$repo/seats" "$bin/seats"
+# Earlier versions were called claude-account; remove that copy if it is ours.
+if [[ -f $bin/claude-account ]] && grep -q "saved subscription logins" "$bin/claude-account"; then
+  rm -f "$bin/claude-account"
+fi
 case ":$PATH:" in
   *":$bin:"*) ;;
   *) echo "  Note: $bin isn't on your PATH. Add this to ~/.zshrc to use the CLI in a terminal:"
@@ -54,7 +58,8 @@ plugins="${plugins/#\~/$HOME}"
 mkdir -p "$plugins"
 
 say "Installing the menu into $plugins"
-install -m 0755 "$here/claude-account.5m.py" "$plugins/claude-account.5m.py"
+install -m 0755 "$here/seats.5m.py" "$plugins/seats.5m.py"
+rm -f "$plugins/claude-account.5m.py"   # the menu's name before the rename
 
 if ! command -v terminal-notifier >/dev/null; then
   echo "  Tip: brew install terminal-notifier makes the limit alert clickable (click to switch)."
@@ -66,8 +71,10 @@ echo
 say "Done. Next:"
 echo "  1. Click the person icon in the menu bar."
 echo "  2. Choose 'Save this login…' for the account you're logged in with now"
-echo "     (or run: claude-account save work)."
+echo "     (or run: seats save work)."
 echo "  3. Choose '+ Add account…' to log in with your other account."
 echo
-echo "  macOS may ask whether 'security' may use the 'Claude Code-credentials' Keychain item."
-echo "  Choose 'Always Allow' — that is how accounts are switched."
+echo "  Seats switches accounts through macOS's 'security' tool, the same way Claude Code"
+echo "  reads its own login, so there is usually no prompt. If macOS does ask about the"
+echo "  'Claude Code-credentials' item, see the wiki's Security and Privacy page before"
+echo "  choosing 'Always Allow'."

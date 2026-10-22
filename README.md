@@ -1,4 +1,4 @@
-# Claude Account
+# Seats for Claude Code
 
 Switch [Claude Code](https://claude.com/claude-code) between several
 subscriptions, for example a work Team seat and a private Pro/Max plan, with
@@ -28,7 +28,7 @@ on any distribution.
 
 ## Install
 
-📖 **Documentation: [the wiki](https://github.com/Manzozorry/claude-account/wiki)**, covering
+📖 **Documentation: [the wiki](https://github.com/Manzozorry/claude-seats/wiki)**, covering
 installation, configuration, the CLI, how it works, security and
 troubleshooting. A plain-text copy of the installation guide is in
 [docs/INSTALL.md](docs/INSTALL.md).
@@ -36,17 +36,17 @@ troubleshooting. A plain-text copy of the installation guide is in
 **Linux (Omarchy)**
 
 ```bash
-omarchy plugin add https://github.com/Manzozorry/claude-account --enable
+omarchy plugin add https://github.com/Manzozorry/claude-seats --enable
 ```
 
 **Other Linux** (CLI only): see
-[Installation on Linux](https://github.com/Manzozorry/claude-account/wiki/Installation-on-Linux#other-distributions).
+[Installation on Linux](https://github.com/Manzozorry/claude-seats/wiki/Installation-on-Linux#other-distributions).
 
 **macOS** (installs [SwiftBar](https://swiftbar.app) if needed)
 
 ```bash
-git clone https://github.com/Manzozorry/claude-account.git
-cd claude-account && ./macos/install.sh
+git clone https://github.com/Manzozorry/claude-seats.git
+cd claude-seats && ./macos/install.sh
 ```
 
 Then save the account you're logged in with now (**Save this login**) and add
@@ -95,13 +95,13 @@ own.
 Both versions are built on one command, which you can also use directly:
 
 ```
-claude-account save [name]       save the current login (asks for a name if omitted)
-claude-account use <name>        switch to <name>
-claude-account toggle            switch to the next saved account
-claude-account login [name]      log in (in a terminal) and save as [name]
-claude-account list              list saved accounts
-claude-account limits [--force]  rate limits for every account, as JSON
-claude-account forget <name>     delete a saved account
+seats save [name]       save the current login (asks for a name if omitted)
+seats use <name>        switch to <name>
+seats toggle            switch to the next saved account
+seats login [name]      log in (in a terminal) and save as [name]
+seats list              list saved accounts
+seats limits [--force]  rate limits for every account, as JSON
+seats forget <name>     delete a saved account
 ```
 
 ## How it works
@@ -109,8 +109,8 @@ claude-account forget <name>     delete a saved account
 Claude Code keeps its login in `~/.claude/.credentials.json` on Linux and in
 the Keychain on macOS, and the account details in the `oauthAccount` block of
 `~/.claude.json`. Each saved account is a copy of both: in
-`~/.local/share/claude-accounts/<name>/` (mode `0600`) on Linux, and in the
-Keychain plus `~/Library/Application Support/claude-accounts/` on macOS.
+`~/.local/share/seats/<name>/` (mode `0600`) on Linux, and in the
+Keychain plus `~/Library/Application Support/Seats/` on macOS.
 
 Before switching, the script saves the active account's current login back to
 its own copy. Logins rotate their refresh tokens, so without this the copy
@@ -133,6 +133,15 @@ limit that has reset since then shows as 0%.
   Just log in again.
 - The macOS version has been tested with a simulated Keychain, not yet on a
   real Mac. Reports are welcome.
+
+## Security
+
+Logins stay on your machine, in owner-only files on Linux and in the Keychain
+on macOS, and are sent only to Anthropic. Read the
+[Security and Privacy](https://github.com/Manzozorry/claude-seats/wiki/Security-and-Privacy)
+page for the threat model, the macOS Keychain prompt, and known risks. Report
+vulnerabilities privately through
+[GitHub security advisories](https://github.com/Manzozorry/claude-seats/security/advisories/new).
 
 ## License
 

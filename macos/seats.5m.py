@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-# <xbar.title>Claude Account</xbar.title>
-# <xbar.version>v1.1.0</xbar.version>
+# <xbar.title>Seats for Claude Code</xbar.title>
+# <xbar.version>v2.0.0</xbar.version>
 # <xbar.author>zorry</xbar.author>
 # <xbar.desc>Switch Claude Code between subscriptions and compare their limits.</xbar.desc>
-# <xbar.dependencies>python3,claude-account</xbar.dependencies>
+# <xbar.dependencies>python3,seats</xbar.dependencies>
 # <swiftbar.hideRunInTerminal>true</swiftbar.hideRunInTerminal>
 # <swiftbar.hideDisablePlugin>true</swiftbar.hideDisablePlugin>
 # <swiftbar.hideSwiftBar>false</swiftbar.hideSwiftBar>
-"""SwiftBar / xbar menu for claude-account: the same panel as the Omarchy
-widget, as a macOS menu. Runs every five minutes (the .5m. in the name) and
-after every action; switching, logging in and alerts all go through the
-claude-account CLI."""
+"""Seats for Claude Code, as a SwiftBar / xbar menu: the same panel as the
+Omarchy widget, as a macOS menu. Runs every five minutes (the .5m. in the
+name) and after every action; switching, logging in and alerts all go
+through the seats CLI."""
 import datetime as dt
 import json
 import os
@@ -18,18 +18,18 @@ import shutil
 import subprocess
 from pathlib import Path
 
-ALERT_AT = float(os.environ.get("CLAUDE_ACCOUNT_ALERT_AT", "90")) / 100
-ALERTS = os.environ.get("CLAUDE_ACCOUNT_ALERTS", "1") != "0"
+ALERT_AT = float(os.environ.get("SEATS_ALERT_AT", "90")) / 100
+ALERTS = os.environ.get("SEATS_ALERTS", "1") != "0"
 URGENT = "#e5484d"
 DIM = "#8b8d98"
 MONO = "font=Menlo size=12"
-STATE = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / "Library/Caches") / "claude-account-alerts.json"
+STATE = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / "Library/Caches") / "seats-alerts.json"
 
 
 def find_cli():
   here = Path(__file__).resolve().parent
-  for p in (os.environ.get("CLAUDE_ACCOUNT_CLI"), shutil.which("claude-account"),
-            Path.home() / ".local/bin/claude-account", here / "claude-account", here.parent / "claude-account"):
+  for p in (os.environ.get("SEATS_CLI"), shutil.which("seats"),
+            Path.home() / ".local/bin/seats", here / "seats", here.parent / "seats"):
     if p and Path(p).is_file():
       return str(p)
   return None
@@ -104,12 +104,12 @@ def action(*args, terminal=False, refresh=True):
 
 def notify(title, body, switch_to):
   if shutil.which("terminal-notifier"):
-    cmd = ["terminal-notifier", "-title", "Claude Account", "-subtitle", title, "-message", body, "-group", "claude-account"]
+    cmd = ["terminal-notifier", "-title", "Seats", "-subtitle", title, "-message", body, "-group", "seats"]
     if switch_to:
-      cmd += ["-execute", f'"{CLI}" use "{switch_to}" && open -g "swiftbar://refreshplugin?name=claude-account"']
+      cmd += ["-execute", f'"{CLI}" use "{switch_to}" && open -g "swiftbar://refreshplugin?name=seats"']
     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
   elif shutil.which("osascript"):
-    script = f'display notification {json.dumps(body)} with title "Claude Account" subtitle {json.dumps(title)}'
+    script = f'display notification {json.dumps(body)} with title "Seats" subtitle {json.dumps(title)}'
     subprocess.Popen(["osascript", "-e", script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
@@ -158,8 +158,8 @@ def main():
   if not CLI:
     print("Claude | sfimage=person.crop.circle.badge.exclamationmark")
     print("---")
-    print("claude-account CLI not found")
-    print("Install it with macos/install.sh | href=https://github.com/")
+    print("seats CLI not found")
+    print("Install it with macos/install.sh | href=https://github.com/Manzozorry/claude-seats/wiki/Installation-on-macOS")
     return
 
   status = run("status") or {"current": "", "accounts": [], "loggedIn": False}
