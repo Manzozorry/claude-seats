@@ -6,6 +6,8 @@ one click, and see every account's limits side by side. Runs on **macOS** (menu
 bar) and **Linux**: a bar widget on [Omarchy](https://omarchy.org/), and a CLI
 on any distribution.
 
+🌐 **Website: [manzozorry.github.io/claude-seats](https://manzozorry.github.io/claude-seats/)**
+
 ![Preview](preview.png)
 
 ## What it does
